@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Will you be my Valentine?</title>
+
+  <!-- Confetti library -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --bg1: #ffd6e7;
+      --bg2: #ffeef6;
+      --card: #ffffffcc;
+      --yes: #ff3b7a;
+      --yesHover: #ff1f68;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, var(--bg2), var(--bg1));
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      padding: 16px;
+      /* Hide default cursor on desktop to show custom one */
+      cursor: none; 
+    }
+
+    /* Restore default cursor if device is touch-primary (mobiles/tablets) */
+    @media (pointer: coarse) {
+      body { cursor: auto; }
+    }
+
+    /* FULL-SCREEN CONFETTI CANVAS */
+    #confettiCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* FLOATING EMOJIS CONTAINER */
+    #floatingEmojis {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none; /* Let clicks pass through empty space */
+      z-index: 5; /* Behind the card (10) but accessible */
+      overflow: hidden;
+    }
+
+    .floater {
+      position: absolute;
+      font-size: 2rem;
+      opacity: 0.7;
+      user-select: none;
+      cursor: pointer; /* Show it's clickable */
+      pointer-events: auto; /* Enable clicking on the emoji itself */
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .floater:hover {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+
+    /* REASONS POPUP BUBBLE */
+    .reason-popup {
+      position: absolute;
+      background: white;
+      color: #ff3b7a;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      animation: floatUpFade 2.5s forwards;
+    }
+
+    @keyframes floatUpFade {
+      0% { transform: translate(-50%, 0); opacity: 0; }
+      10% { transform: translate(-50%, -10px); opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translate(-50%, -50px); opacity: 0; }
+    }
+
+    /* CUSTOM CURSOR */
+    #customCursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      font-size: 32px;
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      display: none; /* Hidden by default, shown via JS on non-touch devices */
+    }
+
+    /* Pumping animation for cursor */
+    .pumping {
+      animation: pump 0.8s infinite ease-in-out alternate;
+    }
+
+    @keyframes pump {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      100% { transform: translate(-50%, -50%) scale(1.3); }
+    }
+
+    /* CUPID & ARROW */
+    #cupid {
+      position: fixed;
+      font-size: 30px;
+      z-index: 50;
+      transition: top 3s ease-in-out, left 3s ease-in-out;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    }
+
+    #cupidArrow {
+      position: fixed;
+      font-size: 30px;
+      z-index: 51;
+      pointer-events: none;
+      display: none; /* Hidden until shot */
+      color: #ff3b7a;
+    }
+
+    /* MUSIC BUTTON */
+    #musicControl {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 200;
+      background: white;
+      padding: 10px 20px;
+      border-radius: 50px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      cursor: pointer;
+      font-weight: bold;
+      color: #ff3b7a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s;
+      animation: bounceBtn 2s infinite;
+    }
+    
+    #musicControl:hover {
+      transform: scale(1.05);
+    }
+
+    @keyframes bounceBtn {
+      0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 
+      40% {transform: translateY(-6px);} 
+      60% {transform: translateY(-3px);} 
+    }
+
+    .card {
+      position: relative;
+      z-index: 10; /* Above floating emojis */
+      width: min(720px, 92vw);
+      padding: 26px 22px;
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border-radius: 22px;
+      text-align: center;
+      box-shadow: 0 18px 60px rgba(0,0,0,.15);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .art {
+      width: min(260px, 80vw);
+      margin: 0 auto 10px;
+      display: block;
+      filter: drop-shadow(0 10px 14px rgba(0,0,0,.12));
+    }
+
+    h1 {
+      font-size: clamp(26px, 4vw, 44px);
+      margin: 12px 0 18px;
+      color: #333;
+      line-height: 1.2;
+    }
+
+    .button-zone {
+      position: relative;
+      width: min(520px, 100%);
+      height: 150px;
+      margin: 0 auto;
+      touch-action: none;
+    }
+
+    button {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 16px 32px;
+      font-size: 18px;
+      font-weight: 800;
+      border-radius: 999px;
+      border: none;
+      cursor: none; /* Hide cursor on buttons too */
+      box-shadow: 0 10px 24px rgba(0,0,0,.14);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .12s ease, background .12s ease;
+    }
+
+    /* Re-enable pointer cursor on touch devices */
+    @media (pointer: coarse) {
+      button { cursor: pointer; }
+    }
+
+    #yesBtn {
+      left: 20%;
+      background: var(--yes);
+      color: #fff;
+    }
+    #yesBtn:hover { background: var(--yesHover); }
+
+    #noBtn {
+      left: 60%;
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: .7;
+      color: #555;
+    }
+
+    .result {
+      display: none;
+      margin-top: 18px;
+      animation: pop .35s ease;
+    }
+
+    .result h2 {
+      font-size: clamp(30px, 4.5vw, 46px);
+      margin: 10px 0;
+      color: var(--yes);
+    }
+
+    .fireworks {
+      width: min(380px, 90vw);
+      margin: 0 auto;
+      display: block;
+      border-radius: 12px;
+    }
+
+    @keyframes pop {
+      from { transform: scale(.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- BACKGROUND FLOATING EMOJIS -->
+  <div id="floatingEmojis"></div>
+
+  <!-- CUSTOM CURSOR -->
+  <div id="customCursor" class="pumping">❤️</div>
+
+  <!-- CUPID ELEMENTS -->
+  <div id="cupid">👼</div>
+  <div id="cupidArrow">➔</div>
+
+  <!-- MUSIC BUTTON -->
+  <div id="musicControl">🎵 Play Song</div>
+  
+  <!-- DIRECT AUDIO PLAYER (Hidden, Reliable) -->
+  <audio id="bgMusic" loop>
+    <!-- 
+      Switched to "Sweet & Cute" romantic background music (Royalty-free from Pixabay).
+      This track is more upbeat and "cute" than the previous piano version.
+    -->
+    <source src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+
+  <canvas id="confettiCanvas"></canvas>
+
+  <main class="card">
+    <!-- ANIMAL WITH HEART SVG -->
+    <svg class="art" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fur" x1="0" x2="1">
+          <stop offset="0" stop-color="#f7c7a1"/>
+          <stop offset="1" stop-color="#f2a97b"/>
+        </linearGradient>
+        <linearGradient id="heart" x1="0" x2="1">
+          <stop offset="0" stop-color="#ff4d7d"/>
+          <stop offset="1" stop-color="#ff1f68"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Heart Shape -->
+      <path d="M250 50 C250 33 270 25 282 38
+               C294 25 314 33 314 50
+               C314 78 282 92 282 106
+               C282 92 250 78 250 50Z"
+            fill="url(#heart)"/>
+
+      <!-- Animal Body -->
+      <path d="M90 120 C90 70 140 40 190 60
+               C240 40 290 70 290 120
+               C290 180 240 210 190 210
+               C140 210 90 180 90 120Z"
+            fill="url(#fur)"/>
+
+      <!-- Ears -->
+      <path d="M110 92 L95 55 L140 78 Z" fill="#f2a97b"/>
+      <path d="M270 92 L285 55 L240 78 Z" fill="#f2a97b"/>
+
+      <!-- Eyes (IDs for tracking) -->
+      <circle id="eyeLeft" cx="160" cy="130" r="8" fill="#333"/>
+      <circle id="eyeRight" cx="220" cy="130" r="8" fill="#333"/>
+
+      <!-- Nose/Mouth area -->
+      <path d="M190 144 C186 144 182 148 182 152
+               C182 160 190 164 190 170
+               C190 164 198 160 198 152
+               C198 148 194 144 190 144Z"
+            fill="#ff7aa2"/>
+    </svg>
+
+    <!-- Main Question -->
+    <h1>Baba, will you be my Valentine?</h1>
+
+    <section class="button-zone" id="zone">
+      <button id="yesBtn">Yes</button>
+      <button id="noBtn">No</button>
+    </section>
+
+    <!-- HINT -->
+    <div class="hint" id="hint">Tip: Tap the floating hearts! 💖</div>
+
+    <section class="result" id="result">
+      <h2>YAY! 🎉</h2>
+      <img
+        class="fireworks"
+        src="https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif"
+        alt="Fireworks"
+      />
+    </section>
+  </main>
+
+  <script>
+    /* ---------- 1. RELIABLE AUDIO LOGIC ---------- */
+    const musicBtn = document.getElementById('musicControl');
+    const bgMusic = document.getElementById('bgMusic');
+    
+    // Set volume to 100% to ensure it can be heard
+    bgMusic.volume = 1.0;
+
+    // Add error listener to debug loading issues
+    bgMusic.addEventListener('error', function(e) {
+      console.error("Audio Error:", e);
+      musicBtn.textContent = "❌ Audio Error";
+      musicBtn.style.background = "#ffeba1";
+      musicBtn.style.color = "#555";
+      alert("Audio failed to load. Please check your internet connection.");
+    });
+
+    musicBtn.addEventListener('click', () => {
+      if (bgMusic.paused) {
+        // Attempt to play
+        const playPromise = bgMusic.play();
+        
+        // Browsers require interaction; promise handling catches errors
+        if (playPromise !== undefined) {
+          playPromise.then(_ => {
+            // Play started!
+            musicBtn.textContent = "⏸ Pause Song";
+            musicBtn.style.animation = "none";
+          })
+          .catch(error => {
+            console.error("Playback failed:", error);
+            alert("Playback failed. Browser might be blocking audio. Try interacting with the page more.");
+          });
+        }
+      } else {
+        bgMusic.pause();
+        musicBtn.textContent = "🎵 Play Song";
+        musicBtn.style.animation = "bounceBtn 2s infinite";
+      }
+    });
+
+    /* ---------- 2. CUSTOM CURSOR LOGIC ---------- */
+    const cursor = document.getElementById('customCursor');
+    const isDesktop = window.matchMedia('(pointer: fine)').matches;
+
+    if (isDesktop) {
+      cursor.style.display = 'block';
+      document.addEventListener('mousemove', (e) => {
+        cursor.style.left = e.clientX + 'px';
+        cursor.style.top = e.clientY + 'px';
+      });
+      document.addEventListener('mousedown', () => {
+        cursor.style.transform = 'translate(-50%, -50%) scale(0.9)';
+      });
+      document.addEventListener('mouseup', () => {
+        cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+      });
+    }
+
+    /* ---------- 3. BACKGROUND FLOATING EMOJIS (INTERACTIVE) ---------- */
+    const emojiContainer = document.getElementById('floatingEmojis');
+    const emojis = ['💖', '💕', '🥰', '😍', '💘', '💝', '💓', '💗'];
+    const reasons = [
+      "Your beautiful smile",
+      "Your infectious laugh", 
+      "Because you hate ketchup too",
+      "The way you care",
+      "You are my sunshine",
+      "Because you hate ketchup too",
+      "Your cute eyes",
+      "Because you hate ketchup too",
+      "My best friend",
+      "Everything about you"
+    ];
+    const FLOATER_COUNT = 20;
+
+    // Function to show a reason popup
+    function showReason(x, y) {
+      const reason = reasons[Math.floor(Math.random() * reasons.length)];
+      
+      const popup = document.createElement('div');
+      popup.className = 'reason-popup';
+      popup.textContent = reason;
+      popup.style.left = x + 'px';
+      popup.style.top = y + 'px';
+      
+      document.body.appendChild(popup);
+      
+      // Remove after animation completes
+      setTimeout(() => {
+        popup.remove();
+      }, 2500);
+    }
+
+    class Floater {
+      constructor() {
+        this.el = document.createElement('div');
+        this.el.className = 'floater';
+        this.el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = (Math.random() - 0.5) * 1.5;
+        this.el.style.fontSize = (Math.random() * 20 + 20) + 'px';
+        
+        // Add click listener for reasons
+        this.el.addEventListener('click', (e) => {
+          // Stop propagation so it doesn't trigger other things if overlapping
+          e.stopPropagation();
+          showReason(e.clientX, e.clientY);
+          
+          // Optional: slight bounce effect on click
+          this.el.style.transform = "scale(1.5)";
+          setTimeout(() => { this.el.style.transform = "scale(1)"; }, 200);
+        });
+
+        emojiContainer.appendChild(this.el);
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > window.innerWidth) this.vx *= -1;
+        if (this.y < 0 || this.y > window.innerHeight) this.vy *= -1;
+        
+        // We use transform for movement, but we must not overwrite the scale on hover
+        // A simple way is to just set translate, and let CSS hover handle scale
+        this.el.style.left = this.x + 'px';
+        this.el.style.top = this.y + 'px';
+      }
+    }
+    const floaters = [];
+    for (let i = 0; i < FLOATER_COUNT; i++) floaters.push(new Floater());
+    function animateFloaters() {
+      // Logic changed slightly to use left/top for position so transform can be used for hover effects
+      floaters.forEach(f => f.update());
+      requestAnimationFrame(animateFloaters);
+    }
+    animateFloaters();
+
+
+    /* ---------- 4. CUPID LOGIC ---------- */
+    const cupid = document.getElementById('cupid');
+    const cupidArrow = document.getElementById('cupidArrow');
+    let gameActive = true;
+
+    // Move cupid to a random spot on the screen
+    function moveCupid() {
+      if (!gameActive) return;
+      // Use more of the screen width/height for full screen roaming
+      const x = Math.random() * (window.innerWidth - 80) + 10;
+      const y = Math.random() * (window.innerHeight - 80) + 10;
+      
+      // Face the center of screen (simple logic)
+      if (x > window.innerWidth / 2) {
+        cupid.style.transform = 'scaleX(-1)'; // Face left
+      } else {
+        cupid.style.transform = 'scaleX(1)'; // Face right
+      }
+      
+      cupid.style.left = x + 'px';
+      cupid.style.top = y + 'px';
+    }
+
+    // Shoot arrow at the Yes button
+    function shootArrow() {
+      if (!gameActive) return;
+
+      const cupidRect = cupid.getBoundingClientRect();
+      const btnRect = yesBtn.getBoundingClientRect();
+
+      // Start position (Cupid)
+      const startX = cupidRect.left + cupidRect.width/2;
+      const startY = cupidRect.top + cupidRect.height/2;
+      
+      // End position (Center of Yes button)
+      const endX = btnRect.left + btnRect.width/2;
+      const endY = btnRect.top + btnRect.height/2;
+
+      // Reset arrow state
+      cupidArrow.style.transition = 'none';
+      cupidArrow.style.left = startX + 'px';
+      cupidArrow.style.top = startY + 'px';
+      cupidArrow.style.display = 'block';
+
+      // Calculate angle
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      
+      // Rotate arrow to point at button
+      cupidArrow.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+
+      // Force browser reflow to apply reset
+      void cupidArrow.offsetWidth;
+
+      // Animate flight
+      cupidArrow.style.transition = 'left 0.5s linear, top 0.5s linear';
+      cupidArrow.style.left = endX + 'px';
+      cupidArrow.style.top = endY + 'px';
+
+      // Impact
+      setTimeout(() => {
+        if (!gameActive) return;
+        cupidArrow.style.display = 'none';
+        // Arrow hits but does nothing now (Peaceful mode)
+      }, 500);
+    }
+
+    // Loops
+    setInterval(moveCupid, 3500); // Move every 3.5s (roaming)
+    setTimeout(() => {
+        setInterval(shootArrow, 7500); // Shoot every 7.5s
+    }, 1000); // Delay first shot slightly
+
+
+    /* ---------- 5. TEDDY EYES LOGIC (Restored) ---------- */
+    const eyeLeft = document.getElementById('eyeLeft');
+    const eyeRight = document.getElementById('eyeRight');
+    
+    document.addEventListener('mousemove', (e) => {
+      // Basic eye tracking
+      if(!eyeLeft || !eyeRight) return;
+      
+      [eyeLeft, eyeRight].forEach(eye => {
+        const rect = eye.getBoundingClientRect();
+        const eyeX = rect.left + rect.width / 2;
+        const eyeY = rect.top + rect.height / 2;
+        
+        // Angle to cursor
+        const angle = Math.atan2(e.clientY - eyeY, e.clientX - eyeX);
+        
+        // Distance constraint
+        const maxDist = 3.5;
+        const dist = Math.min(maxDist, Math.hypot(e.clientX - eyeX, e.clientY - eyeY) / 15);
+
+        const x = Math.cos(angle) * dist;
+        const y = Math.sin(angle) * dist;
+
+        eye.style.transform = `translate(${x}px, ${y}px)`;
+      });
+    });
+
+
+    /* ---------- 6. MAIN INTERACTION LOGIC ---------- */
+    const zone = document.getElementById("zone");
+    const yesBtn = document.getElementById("yesBtn");
+    const noBtn = document.getElementById("noBtn");
+    const result = document.getElementById("result");
+    const hint = document.getElementById("hint");
+    const confettiCanvas = document.getElementById("confettiCanvas");
+
+    function resizeConfettiCanvas() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      confettiCanvas.width = Math.floor(window.innerWidth * dpr);
+      confettiCanvas.height = Math.floor(window.innerHeight * dpr);
+      confettiCanvas.style.width = "100vw";
+      confettiCanvas.style.height = "100vh";
+    }
+
+    resizeConfettiCanvas();
+    window.addEventListener("resize", resizeConfettiCanvas);
+    window.addEventListener("orientationchange", () => setTimeout(resizeConfettiCanvas, 150));
+
+    const confettiInstance = confetti.create(confettiCanvas, {
+      resize: false,
+      useWorker: false // Changed from true to fix InvalidStateError
+    });
+
+    function fullScreenConfetti() {
+      const end = Date.now() + 2000;
+      (function frame() {
+        confettiInstance({
+          particleCount: 12,
+          spread: 90,
+          startVelocity: 45,
+          ticks: 180,
+          origin: { x: Math.random(), y: Math.random() * 0.3 }
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+
+      setTimeout(() => {
+        confettiInstance({
+          particleCount: 250,
+          spread: 140,
+          startVelocity: 60,
+          ticks: 250,
+          origin: { x: 0.5, y: 0.55 }
+        });
+      }, 300);
+    }
+
+    let yesScale = 1;
+    function growYes() {
+      yesScale = Math.min(6, yesScale + 0.1); 
+      yesBtn.style.transform = `translateY(-50%) scale(${yesScale})`;
+    }
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function moveNo(px, py) {
+      const z = zone.getBoundingClientRect();
+      const b = noBtn.getBoundingClientRect();
+
+      let dx = (b.left + b.width / 2) - px;
+      let dy = (b.top + b.height / 2) - py;
+      let mag = Math.hypot(dx, dy) || 1;
+      dx /= mag;
+      dy /= mag;
+
+      let moveDistance = 150;
+      let newLeft = (b.left - z.left) + dx * moveDistance;
+      let newTop  = (b.top - z.top) + dy * moveDistance;
+
+      newLeft = clamp(newLeft, 0, z.width - b.width);
+      newTop  = clamp(newTop, 0, z.height - b.height);
+
+      noBtn.style.left = newLeft + "px";
+      noBtn.style.top = newTop + "px";
+      noBtn.style.transform = "none";
+      
+      growYes();
+    }
+
+    zone.addEventListener("pointermove", e => {
+      const b = noBtn.getBoundingClientRect();
+      const dist = Math.hypot(
+        (b.left + b.width / 2) - e.clientX,
+        (b.top + b.height / 2) - e.clientY
+      );
+      if (dist < 140) moveNo(e.clientX, e.clientY);
+    });
+
+    noBtn.addEventListener("click", e => {
+      e.preventDefault();
+      growYes();
+    });
+    
+    noBtn.addEventListener("mouseenter", e => moveNo(e.clientX, e.clientY));
+
+    yesBtn.addEventListener("click", () => {
+      gameActive = false;
+      zone.style.display = "none";
+      hint.style.display = "none";
+      cupid.style.display = "none";
+      cupidArrow.style.display = "none";
+      result.style.display = "block";
+      resizeConfettiCanvas();
+      fullScreenConfetti();
+
+      // --- WHATSAPP NOTIFICATION ---
+      // Opens WhatsApp after 1 second so she sees the fireworks first
+      setTimeout(() => {
+        // Number: 917003985200 (Added 91 India code for safety)
+        // Message: Yes! I'll be your Valentine! 💖
+        const phoneNumber = "917003985200";
+        const message = encodeURIComponent("Yes! I'll be your Valentine! 💖");
+        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+        
+        window.open(whatsappUrl, "_blank");
+      }, 1200);
+    });
+    
+    // Initial random position for cupid
+    moveCupid();
+  </script>
+</body>
+</html>
