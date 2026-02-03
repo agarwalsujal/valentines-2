@@ -178,6 +178,10 @@
       text-align: center;
       box-shadow: 0 18px 60px rgba(0,0,0,.15);
       border: 1px solid rgba(255, 255, 255, 0.5);
+      /* Ensure relative positioning for pop-up photos */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .art {
@@ -247,6 +251,8 @@
       display: none;
       margin-top: 18px;
       animation: pop .35s ease;
+      position: relative; /* Anchor for fireworks */
+      width: 100%;
     }
 
     .result h2 {
@@ -260,6 +266,28 @@
       margin: 0 auto;
       display: block;
       border-radius: 12px;
+    }
+
+    /* POP-UP PHOTOS STYLE */
+    .pop-photo {
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      object-fit: cover;
+      border: 4px solid white;
+      border-radius: 12px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.25);
+      opacity: 0;
+      transform: scale(0) rotate(0deg);
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Bouncy effect */
+      z-index: 101;
+      top: 50%; /* Centered by default, moved by JS */
+      left: 50%;
+    }
+    
+    .pop-photo.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1) rotate(var(--rot));
     }
 
     @keyframes pop {
@@ -285,17 +313,14 @@
   
   <!-- DIRECT AUDIO PLAYER (Hidden, Reliable) -->
   <audio id="bgMusic" loop>
-    <!-- 
-      Switched to "Sweet & Cute" romantic background music (Royalty-free from Pixabay).
-      This track is more upbeat and "cute" than the previous piano version.
-    -->
+    <!-- Sweet & Cute romantic background music -->
     <source src="https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3" type="audio/mpeg">
     Your browser does not support the audio element.
   </audio>
 
   <canvas id="confettiCanvas"></canvas>
 
-  <main class="card">
+  <main class="card" id="mainCard">
     <!-- ANIMAL WITH HEART SVG -->
     <svg class="art" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -608,6 +633,7 @@
     const result = document.getElementById("result");
     const hint = document.getElementById("hint");
     const confettiCanvas = document.getElementById("confettiCanvas");
+    const mainCard = document.getElementById("mainCard");
 
     function resizeConfettiCanvas() {
       const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -623,7 +649,7 @@
 
     const confettiInstance = confetti.create(confettiCanvas, {
       resize: false,
-      useWorker: false // Changed from true to fix InvalidStateError
+      useWorker: false 
     });
 
     function fullScreenConfetti() {
@@ -700,6 +726,27 @@
     
     noBtn.addEventListener("mouseenter", e => moveNo(e.clientX, e.clientY));
 
+    // --- PHOTO SLIDESHOW LOGIC ---
+    const photoFiles = [
+      "WhatsApp Image 2026-02-03 at 11.23.30.jpeg",
+      "WhatsApp Image 2026-02-03 at 11.23.31 (1).jpeg",
+      "WhatsApp Image 2026-02-03 at 11.23.31 (2).jpeg",
+      "WhatsApp Image 2026-02-03 at 11.23.31.jpeg",
+      "WhatsApp Image 2026-02-03 at 11.23.32 (1).jpeg",
+      "WhatsApp Image 2026-02-03 at 11.23.32.jpeg"
+    ];
+
+    // Coordinates for the U shape around "YAY!"
+    // Relative to the card center (x=0, y=0 is center)
+    const positions = [
+      { x: -160, y: -20, rot: -15 },  // Top Left
+      { x: -120, y: 80,  rot: -10 },  // Mid Left
+      { x: -50,  y: 140, rot: -5 },   // Bottom Left
+      { x: 50,   y: 140, rot: 5 },    // Bottom Right
+      { x: 120,  y: 80,  rot: 10 },   // Mid Right
+      { x: 160,  y: -20, rot: 15 }    // Top Right
+    ];
+
     yesBtn.addEventListener("click", () => {
       gameActive = false;
       zone.style.display = "none";
@@ -710,17 +757,45 @@
       resizeConfettiCanvas();
       fullScreenConfetti();
 
-      // --- WHATSAPP NOTIFICATION ---
-      // Opens WhatsApp after 1 second so she sees the fireworks first
+      // Start Photo Slideshow after 1.5s delay
       setTimeout(() => {
-        // Number: 917003985200 (Added 91 India code for safety)
-        // Message: Yes! I'll be your Valentine! 💖
-        const phoneNumber = "917439042763";
+        photoFiles.forEach((src, index) => {
+          setTimeout(() => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.className = 'pop-photo';
+            
+            // Set custom rotation variable for CSS
+            const pos = positions[index];
+            img.style.setProperty('--rot', pos.rot + 'deg');
+            
+            // Actually, let's just append it to mainCard and use margin relative to center.
+            mainCard.appendChild(img);
+            
+            // Force reflow
+            void img.offsetWidth;
+            
+            // Apply position & show
+            // We override the CSS transform slightly to include the position offset
+            img.style.marginLeft = pos.x + 'px';
+            img.style.marginTop = pos.y + 'px';
+            
+            img.classList.add('show');
+            
+          }, index * 400); // 400ms interval (Fast fast)
+        });
+      }, 1500);
+
+      // --- WHATSAPP NOTIFICATION ---
+      // Time = 1.5s initial delay + (number of photos * 400ms) + 500ms pause
+      const totalDelay = 1500 + (photoFiles.length * 400) + 500;
+      
+      setTimeout(() => {
+        const phoneNumber = "917003985200";
         const message = encodeURIComponent("Yes! I'll be your Valentine! 💖");
         const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-        
         window.open(whatsappUrl, "_blank");
-      }, 3200);
+      }, totalDelay);
     });
     
     // Initial random position for cupid
